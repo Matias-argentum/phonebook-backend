@@ -29,9 +29,10 @@ let persons = [
 
 const date = new Date();
 
-app.use(morgan('tiny'))
+app.use(morgan('tiny'));
 app.use(express.json());
-app.use(cors())
+app.use(cors());
+app.use(express.static('dist'));
 
 app.get('/', (req, res)=>{
     res.send('Hello, world');
