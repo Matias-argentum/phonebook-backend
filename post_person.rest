@@ -1,7 +1,7 @@
-POST https://phonebook-backend-b8s6.onrender.com/api/persons
+POST http://localhost:3001/api/persons
 content-type: application/json
 
 {
-    "name": "messi",
+    "name": "messias",
     "number": "1234564987"
 }

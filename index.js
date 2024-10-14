@@ -1,10 +1,12 @@
+require('dotenv').config()
 const express = require("express");
 const morgan = require("morgan")
 const app = express();
 const cors = require('cors')
+const Person = require('./models/person')
 
 
-let persons = [
+/* let persons = [
     { 
       "id": 1,
       "name": "Arto Hellas", 
@@ -25,7 +27,23 @@ let persons = [
       "name": "Mary Poppendieck", 
       "number": "39-23-6423122"
     }
-];
+]; */
+const unknownEndpoint = (request, response) => {
+    response.status(404).send({ error: 'unknown endpoint' })
+  }
+
+const errorHandler = (error, req, res, next) => {
+    console.error(error.message)
+  
+    if (error.name === 'CastError') {
+      return res.status(400).send({ error: 'malformatted id' })
+    }else if(error.name === 'ValidationError'){
+        return res.status(400).json({error: error.message})
+    }
+  
+    next(error)
+  }
+  
 
 const date = new Date();
 
@@ -39,8 +57,18 @@ app.get('/', (req, res)=>{
 });
 
 
-app.get('/api/persons', (rq, res)=>{
-    res.json(persons)
+app.get('/api/persons', (req, res)=>{
+    //res.json(persons)
+    Person.find({})
+    .then(persons =>{
+        console.log(persons);
+        
+        res.json(persons)
+    })
+    .catch(error =>{
+        console.log("Error fetching persons: ", error);
+        res.status(500).send('Error fetching persons')
+    })
 });
 
 app.get('/info', (req, res)=>{
@@ -50,26 +78,56 @@ app.get('/info', (req, res)=>{
         `)
 })
 
-app.get('/api/persons/:id', (req, res)=>{
-    const id = req.params.id;
+app.get('/api/persons/:id', (req, res, next)=>{
+    /* const id = req.params.id;
     console.log(id);
     
     const person = persons.find(person=>(person.id == id))
     if (!person) {
         return res.status(404).send('Person not found')
     }
-    res.json(person)
+    res.json(person) */
+    Person.findById(req.params.id)
+    .then( person =>{
+        if(person){
+            res.json(person)
+        }else{
+            res.status(404).end()
+        }
+    })
+    .catch(error =>next(error))
 })
 
-app.delete('/api/persons/:id', (req, res)=>{
-    const id = Number(req.params.id)
+app.delete('/api/persons/:id', (req, res, next)=>{
+    /* const id = Number(req.params.id)
     persons = persons.filter(person => person.id !== id)
 
-    res.status(204).end();
+    res.status(204).end(); */
+    Person.findByIdAndDelete(req.params.id)
+    .then(result =>{
+        res.status(204).end();
+    })
+    .catch(error=> next (error));
 })
 
-app.post('/api/persons', (req, res)=>{
-    const id = Math.ceil(Math.random() * (9999999) - 5 + 5)
+
+app.put('/api/persons/:id', (req, res, next) => {
+    const body = req.body
+  
+    const person = {
+      name: body.name,
+      number: body.number,
+    }
+  
+    Person.findByIdAndUpdate(req.params.id, person, { new: true, runValidators: true, context: 'query' })
+      .then(updatedPerson => {
+        res.json(updatedPerson)
+      })
+      .catch(error => next(error))
+  })
+
+app.post('/api/persons', (req, res, next)=>{
+    //const id = Math.ceil(Math.random() * (9999999) - 5 + 5)
 
     if(!req.body.number || ! req.body.name){
         return res.status(400).json(
@@ -81,7 +139,7 @@ app.post('/api/persons', (req, res)=>{
     
     const {name, number} = req.body;
 
-    const found = persons.find(person => person.name === name)
+    /* const found = persons.find(person => person.name === name)
     if (found) {
         return res.status(400).json(
             {
@@ -97,10 +155,26 @@ app.post('/api/persons', (req, res)=>{
         persons = persons.concat(person)
     
         res.json(person)
-    }
+    } */
+
+    const person = new Person({
+        name : name,
+        number: number
+    })
+
+    console.log(person);
+    
+
+    person.save().then( savedPerson =>{
+        res.json(savedPerson)
+    })
+    .catch(error=> next(error))
 })
 
-const PORT = process.env.PORT || 3001;
+app.use(errorHandler)
+app.use(unknownEndpoint)
+
+const PORT = process.env.PORT;
 
 app.listen(PORT, ()=>{
     console.log(`Server running on port ${PORT}`);
